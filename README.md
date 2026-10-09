@@ -108,6 +108,16 @@ Compile with debug symbols (e.g. `cl /Zi /MD main.c` on Windows or `gcc -g main.
 2. **Stripped / Release Binaries (Missing PDB)**: Gracefully falls back to module-relative offsets (`[app.exe + 0x1420]`) without hanging or printing garbage.
 3. **Reentrancy Protection**: Uses atomic CAS guards to prevent infinite recursive crash loops if memory corruption occurs inside exception handling.
 
+## 🌐 Multi-Architecture & Cross-Platform Support
+
+`segfault-lens` features targeted register diagnostics and universal fallbacks across architectures:
+- **x86_64 / AMD64**: Windows & Linux / macOS
+- **ARM64 / AArch64**: Windows (WoA), Linux, Apple Silicon macOS
+- **RISC-V (riscv64)**: Linux (`__riscv`)
+- **PowerPC (PPC / PPC64)**: Linux (`__powerpc__`)
+- **ARM 32-bit & x86 32-bit**: Windows & Linux
+- **Universal Fallback**: Any ANSI C / POSIX environment receives signal, fault address, and stack frames cleanly.
+
 ---
 
 ## 📄 License

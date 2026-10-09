@@ -110,6 +110,28 @@ static void print_crash_report(HANDLE hProcess, HANDLE hThread, EXCEPTION_DEBUG_
                 (unsigned long long)ctx.Rdx, (unsigned long long)ctx.Rsi, (unsigned long long)ctx.Rdi);
         fprintf(stderr, SFL_DIM "    R8 : 0x%016llX   R9 : 0x%016llX   R10: 0x%016llX\n" SFL_RESET,
                 (unsigned long long)ctx.R8, (unsigned long long)ctx.R9, (unsigned long long)ctx.R10);
+#elif defined(_M_ARM64) || defined(__aarch64__)
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (ARM64 / AArch64):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    PC : 0x%016llX   SP : 0x%016llX   FP : 0x%016llX   LR : 0x%016llX\n" SFL_RESET,
+                (unsigned long long)ctx.Pc, (unsigned long long)ctx.Sp, (unsigned long long)ctx.Fp, (unsigned long long)ctx.Lr);
+        fprintf(stderr, SFL_DIM "    X0 : 0x%016llX   X1 : 0x%016llX   X2 : 0x%016llX   X3 : 0x%016llX\n" SFL_RESET,
+                (unsigned long long)ctx.X[0], (unsigned long long)ctx.X[1], (unsigned long long)ctx.X[2], (unsigned long long)ctx.X[3]);
+        fprintf(stderr, SFL_DIM "    X4 : 0x%016llX   X5 : 0x%016llX   X6 : 0x%016llX   X7 : 0x%016llX\n" SFL_RESET,
+                (unsigned long long)ctx.X[4], (unsigned long long)ctx.X[5], (unsigned long long)ctx.X[6], (unsigned long long)ctx.X[7]);
+#elif defined(_M_IX86) || defined(__i386__)
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (x86 32-bit):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    EIP: 0x%08X   ESP: 0x%08X   EBP: 0x%08X\n" SFL_RESET,
+                (unsigned int)ctx.Eip, (unsigned int)ctx.Esp, (unsigned int)ctx.Ebp);
+        fprintf(stderr, SFL_DIM "    EAX: 0x%08X   EBX: 0x%08X   ECX: 0x%08X   EDX: 0x%08X\n" SFL_RESET,
+                (unsigned int)ctx.Eax, (unsigned int)ctx.Ebx, (unsigned int)ctx.Ecx, (unsigned int)ctx.Edx);
+        fprintf(stderr, SFL_DIM "    ESI: 0x%08X   EDI: 0x%08X\n" SFL_RESET,
+                (unsigned int)ctx.Esi, (unsigned int)ctx.Edi);
+#elif defined(_M_ARM) || defined(__arm__)
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (ARM 32-bit):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    PC : 0x%08X   SP : 0x%08X   LR : 0x%08X\n" SFL_RESET,
+                (unsigned int)ctx.Pc, (unsigned int)ctx.Sp, (unsigned int)ctx.Lr);
+        fprintf(stderr, SFL_DIM "    R0 : 0x%08X   R1 : 0x%08X   R2 : 0x%08X   R3 : 0x%08X\n" SFL_RESET,
+                (unsigned int)ctx.R0, (unsigned int)ctx.R1, (unsigned int)ctx.R2, (unsigned int)ctx.R3);
 #endif
 
         /* Stack Walk */
@@ -120,6 +142,14 @@ static void print_crash_report(HANDLE hProcess, HANDLE hThread, EXCEPTION_DEBUG_
 
         STACKFRAME64 frame;
         memset(&frame, 0, sizeof(frame));
+
+#ifndef IMAGE_FILE_MACHINE_ARM64
+#define IMAGE_FILE_MACHINE_ARM64 0xAA64
+#endif
+#ifndef IMAGE_FILE_MACHINE_ARMNT
+#define IMAGE_FILE_MACHINE_ARMNT 0x01c4
+#endif
+
 #if defined(_M_X64) || defined(__x86_64__)
         DWORD machine = IMAGE_FILE_MACHINE_AMD64;
         frame.AddrPC.Offset = ctx.Rip;
@@ -127,6 +157,22 @@ static void print_crash_report(HANDLE hProcess, HANDLE hThread, EXCEPTION_DEBUG_
         frame.AddrFrame.Offset = ctx.Rbp;
         frame.AddrFrame.Mode = AddrModeFlat;
         frame.AddrStack.Offset = ctx.Rsp;
+        frame.AddrStack.Mode = AddrModeFlat;
+#elif defined(_M_ARM64) || defined(__aarch64__)
+        DWORD machine = IMAGE_FILE_MACHINE_ARM64;
+        frame.AddrPC.Offset = ctx.Pc;
+        frame.AddrPC.Mode = AddrModeFlat;
+        frame.AddrFrame.Offset = ctx.Fp;
+        frame.AddrFrame.Mode = AddrModeFlat;
+        frame.AddrStack.Offset = ctx.Sp;
+        frame.AddrStack.Mode = AddrModeFlat;
+#elif defined(_M_ARM) || defined(__arm__)
+        DWORD machine = IMAGE_FILE_MACHINE_ARMNT;
+        frame.AddrPC.Offset = ctx.Pc;
+        frame.AddrPC.Mode = AddrModeFlat;
+        frame.AddrFrame.Offset = ctx.R11;
+        frame.AddrFrame.Mode = AddrModeFlat;
+        frame.AddrStack.Offset = ctx.Sp;
         frame.AddrStack.Mode = AddrModeFlat;
 #elif defined(_M_IX86) || defined(__i386__)
         DWORD machine = IMAGE_FILE_MACHINE_I386;
@@ -136,6 +182,8 @@ static void print_crash_report(HANDLE hProcess, HANDLE hThread, EXCEPTION_DEBUG_
         frame.AddrFrame.Mode = AddrModeFlat;
         frame.AddrStack.Offset = ctx.Esp;
         frame.AddrStack.Mode = AddrModeFlat;
+#else
+        DWORD machine = 0;
 #endif
 
         int f = 0;

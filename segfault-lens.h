@@ -201,7 +201,7 @@ static LONG WINAPI sfl_win_vectored_handler(PEXCEPTION_POINTERS pExcInfo) {
     fprintf(stderr, SFL_WHITE "  Fault Address   : " SFL_CYAN "0x%016llX" SFL_RESET "\n", (unsigned long long)fault_addr);
     fprintf(stderr, SFL_WHITE "  PC / Instruction: " SFL_CYAN "0x%016llX" SFL_RESET "\n", (unsigned long long)pExcInfo->ExceptionRecord->ExceptionAddress);
 
-    /* Dump Registers on x64 */
+    /* Dump CPU Registers based on Target Architecture */
 #if defined(_M_X64) || defined(__x86_64__)
     PCONTEXT ctx = pExcInfo->ContextRecord;
     fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (x86_64):\n" SFL_RESET);
@@ -215,6 +215,31 @@ static LONG WINAPI sfl_win_vectored_handler(PEXCEPTION_POINTERS pExcInfo) {
             (unsigned long long)ctx->R8, (unsigned long long)ctx->R9, (unsigned long long)ctx->R10);
     fprintf(stderr, SFL_DIM "    R11: 0x%016llX   R12: 0x%016llX   R13: 0x%016llX\n" SFL_RESET,
             (unsigned long long)ctx->R11, (unsigned long long)ctx->R12, (unsigned long long)ctx->R13);
+#elif defined(_M_ARM64) || defined(__aarch64__)
+    PCONTEXT ctx = pExcInfo->ContextRecord;
+    fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (ARM64 / AArch64):\n" SFL_RESET);
+    fprintf(stderr, SFL_DIM "    PC : 0x%016llX   SP : 0x%016llX   FP : 0x%016llX   LR : 0x%016llX\n" SFL_RESET,
+            (unsigned long long)ctx->Pc, (unsigned long long)ctx->Sp, (unsigned long long)ctx->Fp, (unsigned long long)ctx->Lr);
+    fprintf(stderr, SFL_DIM "    X0 : 0x%016llX   X1 : 0x%016llX   X2 : 0x%016llX   X3 : 0x%016llX\n" SFL_RESET,
+            (unsigned long long)ctx->X[0], (unsigned long long)ctx->X[1], (unsigned long long)ctx->X[2], (unsigned long long)ctx->X[3]);
+    fprintf(stderr, SFL_DIM "    X4 : 0x%016llX   X5 : 0x%016llX   X6 : 0x%016llX   X7 : 0x%016llX\n" SFL_RESET,
+            (unsigned long long)ctx->X[4], (unsigned long long)ctx->X[5], (unsigned long long)ctx->X[6], (unsigned long long)ctx->X[7]);
+#elif defined(_M_IX86) || defined(__i386__)
+    PCONTEXT ctx = pExcInfo->ContextRecord;
+    fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (x86 32-bit):\n" SFL_RESET);
+    fprintf(stderr, SFL_DIM "    EIP: 0x%08X   ESP: 0x%08X   EBP: 0x%08X\n" SFL_RESET,
+            (unsigned int)ctx->Eip, (unsigned int)ctx->Esp, (unsigned int)ctx->Ebp);
+    fprintf(stderr, SFL_DIM "    EAX: 0x%08X   EBX: 0x%08X   ECX: 0x%08X   EDX: 0x%08X\n" SFL_RESET,
+            (unsigned int)ctx->Eax, (unsigned int)ctx->Ebx, (unsigned int)ctx->Ecx, (unsigned int)ctx->Edx);
+    fprintf(stderr, SFL_DIM "    ESI: 0x%08X   EDI: 0x%08X\n" SFL_RESET,
+            (unsigned int)ctx->Esi, (unsigned int)ctx->Edi);
+#elif defined(_M_ARM) || defined(__arm__)
+    PCONTEXT ctx = pExcInfo->ContextRecord;
+    fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (ARM 32-bit):\n" SFL_RESET);
+    fprintf(stderr, SFL_DIM "    PC : 0x%08X   SP : 0x%08X   LR : 0x%08X\n" SFL_RESET,
+            (unsigned int)ctx->Pc, (unsigned int)ctx->Sp, (unsigned int)ctx->Lr);
+    fprintf(stderr, SFL_DIM "    R0 : 0x%08X   R1 : 0x%08X   R2 : 0x%08X   R3 : 0x%08X\n" SFL_RESET,
+            (unsigned int)ctx->R0, (unsigned int)ctx->R1, (unsigned int)ctx->R2, (unsigned int)ctx->R3);
 #endif
 
     /* Stack Trace Walk using DbgHelp */
@@ -230,6 +255,13 @@ static LONG WINAPI sfl_win_vectored_handler(PEXCEPTION_POINTERS pExcInfo) {
     STACKFRAME64 frame;
     memset(&frame, 0, sizeof(frame));
 
+#ifndef IMAGE_FILE_MACHINE_ARM64
+#define IMAGE_FILE_MACHINE_ARM64 0xAA64
+#endif
+#ifndef IMAGE_FILE_MACHINE_ARMNT
+#define IMAGE_FILE_MACHINE_ARMNT 0x01c4
+#endif
+
 #if defined(_M_X64) || defined(__x86_64__)
     DWORD machineType = IMAGE_FILE_MACHINE_AMD64;
     frame.AddrPC.Offset = walkContext.Rip;
@@ -237,6 +269,22 @@ static LONG WINAPI sfl_win_vectored_handler(PEXCEPTION_POINTERS pExcInfo) {
     frame.AddrFrame.Offset = walkContext.Rbp;
     frame.AddrFrame.Mode = AddrModeFlat;
     frame.AddrStack.Offset = walkContext.Rsp;
+    frame.AddrStack.Mode = AddrModeFlat;
+#elif defined(_M_ARM64) || defined(__aarch64__)
+    DWORD machineType = IMAGE_FILE_MACHINE_ARM64;
+    frame.AddrPC.Offset = walkContext.Pc;
+    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = walkContext.Fp;
+    frame.AddrFrame.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = walkContext.Sp;
+    frame.AddrStack.Mode = AddrModeFlat;
+#elif defined(_M_ARM) || defined(__arm__)
+    DWORD machineType = IMAGE_FILE_MACHINE_ARMNT;
+    frame.AddrPC.Offset = walkContext.Pc;
+    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = walkContext.R11;
+    frame.AddrFrame.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = walkContext.Sp;
     frame.AddrStack.Mode = AddrModeFlat;
 #elif defined(_M_IX86) || defined(__i386__)
     DWORD machineType = IMAGE_FILE_MACHINE_I386;
@@ -317,11 +365,102 @@ static void sfl_posix_signal_handler(int sig, siginfo_t* info, void* uctx_raw) {
     fprintf(stderr, SFL_RED "================================================================================\n" SFL_RESET);
     fprintf(stderr, SFL_RED "  💥 CRASH DETECTED by segfault-lens\n" SFL_RESET);
     fprintf(stderr, SFL_RED "================================================================================\n" SFL_RESET);
-    fprintf(stderr, SFL_WHITE "  Signal          : " SFL_YELLOW "%d (%s)\n" SFL_RESET, sig, sys_siglist[sig]);
+    const char* sig_name = strsignal(sig);
+    if (!sig_name) sig_name = "UNKNOWN";
+
+    fprintf(stderr, SFL_WHITE "  Signal          : " SFL_YELLOW "%d (%s)\n" SFL_RESET, sig, sig_name);
     fprintf(stderr, SFL_WHITE "  Diagnosis       : " SFL_RED "%s\n" SFL_RESET, cause_str);
     fprintf(stderr, SFL_WHITE "  Fault Address   : " SFL_CYAN "0x%016lx" SFL_RESET "\n", (unsigned long)fault_addr);
 
-    /* Backtrace */
+    /* Architecture-specific CPU Register Dump for POSIX */
+#if defined(__linux__) && (defined(__x86_64__) || defined(_M_X64))
+    if (uctx_raw) {
+        ucontext_t* uc = (ucontext_t*)uctx_raw;
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (x86_64):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    RIP: 0x%016llX   RSP: 0x%016llX   RBP: 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext.gregs[REG_RIP],
+                (unsigned long long)uc->uc_mcontext.gregs[REG_RSP],
+                (unsigned long long)uc->uc_mcontext.gregs[REG_RBP]);
+        fprintf(stderr, SFL_DIM "    RAX: 0x%016llX   RBX: 0x%016llX   RCX: 0x%016llX   RDX: 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext.gregs[REG_RAX],
+                (unsigned long long)uc->uc_mcontext.gregs[REG_RBX],
+                (unsigned long long)uc->uc_mcontext.gregs[REG_RCX],
+                (unsigned long long)uc->uc_mcontext.gregs[REG_RDX]);
+    }
+#elif defined(__linux__) && (defined(__aarch64__) || defined(_M_ARM64))
+    if (uctx_raw) {
+        ucontext_t* uc = (ucontext_t*)uctx_raw;
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (ARM64 / AArch64):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    PC : 0x%016llX   SP : 0x%016llX   PSTATE: 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext.pc,
+                (unsigned long long)uc->uc_mcontext.sp,
+                (unsigned long long)uc->uc_mcontext.pstate);
+        fprintf(stderr, SFL_DIM "    X0 : 0x%016llX   X1 : 0x%016llX   X2 : 0x%016llX   X3 : 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext.regs[0], (unsigned long long)uc->uc_mcontext.regs[1],
+                (unsigned long long)uc->uc_mcontext.regs[2], (unsigned long long)uc->uc_mcontext.regs[3]);
+    }
+#elif defined(__linux__) && defined(__riscv)
+    if (uctx_raw) {
+        ucontext_t* uc = (ucontext_t*)uctx_raw;
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (RISC-V):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    PC : 0x%016llX   SP : 0x%016llX   RA : 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext.__gregs[REG_PC],
+                (unsigned long long)uc->uc_mcontext.__gregs[REG_SP],
+                (unsigned long long)uc->uc_mcontext.__gregs[REG_RA]);
+        fprintf(stderr, SFL_DIM "    A0 : 0x%016llX   A1 : 0x%016llX   A2 : 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext.__gregs[REG_A0],
+                (unsigned long long)uc->uc_mcontext.__gregs[REG_A1],
+                (unsigned long long)uc->uc_mcontext.__gregs[REG_A2]);
+    }
+#elif defined(__linux__) && (defined(__powerpc__) || defined(__PPC__) || defined(__ppc__) || defined(__ppc64__))
+    if (uctx_raw) {
+        ucontext_t* uc = (ucontext_t*)uctx_raw;
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (PowerPC):\n" SFL_RESET);
+        if (uc->uc_mcontext.regs) {
+            fprintf(stderr, SFL_DIM "    NIP(PC): 0x%016llX   SP(R1): 0x%016llX   LR: 0x%016llX\n" SFL_RESET,
+                    (unsigned long long)uc->uc_mcontext.regs->nip,
+                    (unsigned long long)uc->uc_mcontext.regs->gpr[1],
+                    (unsigned long long)uc->uc_mcontext.regs->link);
+            fprintf(stderr, SFL_DIM "    R3     : 0x%016llX   R4    : 0x%016llX   R5: 0x%016llX\n" SFL_RESET,
+                    (unsigned long long)uc->uc_mcontext.regs->gpr[3],
+                    (unsigned long long)uc->uc_mcontext.regs->gpr[4],
+                    (unsigned long long)uc->uc_mcontext.regs->gpr[5]);
+        }
+    }
+#elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
+    if (uctx_raw) {
+        ucontext_t* uc = (ucontext_t*)uctx_raw;
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (ARM64 / Apple Silicon):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    PC : 0x%016llX   SP : 0x%016llX   FP : 0x%016llX   LR : 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext->__ss.__pc,
+                (unsigned long long)uc->uc_mcontext->__ss.__sp,
+                (unsigned long long)uc->uc_mcontext->__ss.__fp,
+                (unsigned long long)uc->uc_mcontext->__ss.__lr);
+        fprintf(stderr, SFL_DIM "    X0 : 0x%016llX   X1 : 0x%016llX   X2 : 0x%016llX   X3 : 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext->__ss.__x[0], (unsigned long long)uc->uc_mcontext->__ss.__x[1],
+                (unsigned long long)uc->uc_mcontext->__ss.__x[2], (unsigned long long)uc->uc_mcontext->__ss.__x[3]);
+    }
+#elif defined(__APPLE__) && defined(__x86_64__)
+    if (uctx_raw) {
+        ucontext_t* uc = (ucontext_t*)uctx_raw;
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (x86_64 macOS):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    RIP: 0x%016llX   RSP: 0x%016llX   RBP: 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext->__ss.__rip,
+                (unsigned long long)uc->uc_mcontext->__ss.__rsp,
+                (unsigned long long)uc->uc_mcontext->__ss.__rbp);
+    }
+#elif defined(__linux__) && (defined(__i386__) || defined(_M_IX86))
+    if (uctx_raw) {
+        ucontext_t* uc = (ucontext_t*)uctx_raw;
+        fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (x86 32-bit):\n" SFL_RESET);
+        fprintf(stderr, SFL_DIM "    EIP: 0x%08X   ESP: 0x%08X   EBP: 0x%08X\n" SFL_RESET,
+                (unsigned int)uc->uc_mcontext.gregs[REG_EIP],
+                (unsigned int)uc->uc_mcontext.gregs[REG_ESP],
+                (unsigned int)uc->uc_mcontext.gregs[REG_EBP]);
+    }
+#endif
+
+    /* Stack Trace */
     fprintf(stderr, "\n" SFL_GREEN "  Stack Trace:\n" SFL_RESET);
     void* callstack[64];
     int frames = backtrace(callstack, 64);

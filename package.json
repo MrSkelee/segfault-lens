@@ -1,6 +1,6 @@
 {
   "name": "segfault-lens",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Instant Rust-like crash diagnostics, panic screens and line-level stack traces for C and C++ programs",
   "type": "module",
   "main": "segfault-lens.h",
