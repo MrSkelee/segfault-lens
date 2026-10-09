@@ -416,16 +416,19 @@ static void sfl_posix_signal_handler(int sig, siginfo_t* info, void* uctx_raw) {
     if (uctx_raw) {
         ucontext_t* uc = (ucontext_t*)uctx_raw;
         fprintf(stderr, "\n" SFL_MAGENTA "  CPU Registers (PowerPC):\n" SFL_RESET);
+#if defined(__powerpc64__) || defined(__ppc64__)
+        fprintf(stderr, SFL_DIM "    NIP(PC): 0x%016llX   SP(R1): 0x%016llX   LR: 0x%016llX\n" SFL_RESET,
+                (unsigned long long)uc->uc_mcontext.gp_regs[32],
+                (unsigned long long)uc->uc_mcontext.gp_regs[1],
+                (unsigned long long)uc->uc_mcontext.gp_regs[36]);
+#else
         if (uc->uc_mcontext.regs) {
-            fprintf(stderr, SFL_DIM "    NIP(PC): 0x%016llX   SP(R1): 0x%016llX   LR: 0x%016llX\n" SFL_RESET,
-                    (unsigned long long)uc->uc_mcontext.regs->nip,
-                    (unsigned long long)uc->uc_mcontext.regs->gpr[1],
-                    (unsigned long long)uc->uc_mcontext.regs->link);
-            fprintf(stderr, SFL_DIM "    R3     : 0x%016llX   R4    : 0x%016llX   R5: 0x%016llX\n" SFL_RESET,
-                    (unsigned long long)uc->uc_mcontext.regs->gpr[3],
-                    (unsigned long long)uc->uc_mcontext.regs->gpr[4],
-                    (unsigned long long)uc->uc_mcontext.regs->gpr[5]);
+            fprintf(stderr, SFL_DIM "    NIP(PC): 0x%08lX   SP(R1): 0x%08lX   LR: 0x%08lX\n" SFL_RESET,
+                    (unsigned long)uc->uc_mcontext.regs->nip,
+                    (unsigned long)uc->uc_mcontext.regs->gpr[1],
+                    (unsigned long)uc->uc_mcontext.regs->link);
         }
+#endif
     }
 #elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
     if (uctx_raw) {
