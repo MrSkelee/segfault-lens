@@ -1,0 +1,44 @@
+{
+  "name": "segfault-lens",
+  "version": "1.0.0",
+  "description": "Instant Rust-like crash diagnostics, panic screens and line-level stack traces for C and C++ programs",
+  "type": "module",
+  "main": "segfault-lens.h",
+  "bin": {
+    "segfault-lens": "bin/cli.js",
+    "segfault-run": "bin/cli.js"
+  },
+  "files": [
+    "segfault-lens.h",
+    "bin/cli.js",
+    "bin/segfault-run.exe",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node bin/cli.js ./test_crash.exe"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrSkelee/segfault-lens.git"
+  },
+  "keywords": [
+    "c",
+    "cpp",
+    "segfault",
+    "crash",
+    "stack-trace",
+    "backtrace",
+    "panic",
+    "debugging",
+    "access-violation",
+    "gdb",
+    "debugger"
+  ],
+  "author": "MrSkelee",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/MrSkelee/segfault-lens/issues"
+  },
+  "homepage": "https://github.com/MrSkelee/segfault-lens#readme"
+}
