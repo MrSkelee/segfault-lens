@@ -76,5 +76,6 @@ const child = spawn(supervisorExe, [resolvedTarget, ...targetArgs], {
 });
 
 child.on('exit', (code) => {
-  process.exit(code ?? 0);
+  // Return clean exit code (1 for crash) so bash doesn't print internal SIGSEGV signal
+  process.exit(code === 0 ? 0 : 1);
 });
