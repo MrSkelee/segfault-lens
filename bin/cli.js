@@ -45,11 +45,22 @@ if (args[0] === 'init') {
   process.exit(0);
 }
 
-const targetBinary = (args[0] === 'run') ? args[1] : args[0];
+const rawTarget = (args[0] === 'run') ? args[1] : args[0];
 const targetArgs = (args[0] === 'run') ? args.slice(2) : args.slice(1);
 
-if (!targetBinary) {
+if (!rawTarget) {
   console.error('\x1b[1;31mError:\x1b[0m No executable specified. Run `npx segfault-lens --help` for usage.');
+  process.exit(1);
+}
+
+// Clean git-bash / POSIX slashes and resolve to absolute Windows path
+let resolvedTarget = path.resolve(process.cwd(), rawTarget);
+if (!fs.existsSync(resolvedTarget) && fs.existsSync(resolvedTarget + '.exe')) {
+  resolvedTarget += '.exe';
+}
+
+if (!fs.existsSync(resolvedTarget)) {
+  console.error(`\x1b[1;31mError:\x1b[0m Target executable not found: ${rawTarget} (searched at: ${resolvedTarget})`);
   process.exit(1);
 }
 
@@ -59,7 +70,7 @@ if (!fs.existsSync(supervisorExe)) {
   process.exit(1);
 }
 
-const child = spawn(supervisorExe, [targetBinary, ...targetArgs], {
+const child = spawn(supervisorExe, [resolvedTarget, ...targetArgs], {
   stdio: 'inherit',
   cwd: process.cwd()
 });

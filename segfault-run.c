@@ -192,10 +192,18 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    char fullAppPath[MAX_PATH] = "";
+    if (GetFullPathNameA(argv[1], MAX_PATH, fullAppPath, NULL) == 0) {
+        strncpy(fullAppPath, argv[1], sizeof(fullAppPath) - 1);
+    }
+
     /* Build command line string */
     char cmdline[32768] = "";
-    for (int i = 1; i < argc; ++i) {
-        if (i > 1) strcat(cmdline, " ");
+    strcat(cmdline, "\"");
+    strcat(cmdline, fullAppPath);
+    strcat(cmdline, "\"");
+    for (int i = 2; i < argc; ++i) {
+        strcat(cmdline, " ");
         strcat(cmdline, "\"");
         strcat(cmdline, argv[i]);
         strcat(cmdline, "\"");
