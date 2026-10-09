@@ -1,0 +1,6 @@
+﻿*.obj
+*.pdb
+*.ilk
+*.exe
+demo.*
+REDDIT_POST.md
